@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Emotion Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#f4f6fa;
+}
+
+/* HEADER */
+.header{
+    height:70px;
+    background:white;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 20px;
+    box-shadow:0 2px 5px rgba(0,0,0,.1);
+}
+
+.emotion{
+    font-size:28px;
+    font-weight:bold;
+}
+
+/* GRID */
+.main{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    padding:10px;
+}
+
+.card{
+    background:white;
+    border-radius:10px;
+    box-shadow:0 2px 5px rgba(0,0,0,.1);
+    padding:10px;
+}
+
+/* Chart size */
+.chartBox{
+    height:340px;
+}
+
+/* Legend */
+.legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    font-size:13px;
+    margin-bottom:5px;
+}
+
+.box{
+    width:12px;
+    height:12px;
+    display:inline-block;
+    margin-right:4px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+<div id="emotion" class="emotion">Listening...</div>
+
+<div>
+Confidence: <b id="conf">0</b>% |
+Accuracy: <b id="acc">0</b>% |
+Time: <b id="time">0</b>s
+<button onclick="start()">Start</button>
+<button onclick="stop()">Stop</button>
+</div>
+</div>
+
+<div class="main">
+
+<!-- TREND -->
+<div class="card">
+<h3>Emotion Trend</h3>
+<div class="chartBox">
+<canvas id="trend"></canvas>
+</div>
+</div>
+
+<!-- PIE -->
+<div class="card">
+
+<h3>Emotion Distribution</h3>
+
+<div class="legend">
+<span><span class="box" style="background:#6c757d"></span>Neutral</span>
+<span><span class="box" style="background:#20c997"></span>Calm</span>
+<span><span class="box" style="background:#ffc107"></span>Happy</span>
+<span><span class="box" style="background:#fd7e14"></span>Sad</span>
+<span><span class="box" style="background:#dc3545"></span>Angry</span>
+<span><span class="box" style="background:#6610f2"></span>Fearful</span>
+<span><span class="box" style="background:#0dcaf0"></span>Surprised</span>
+<span><span class="box" style="background:#343a40"></span>Disgust</span>
+</div>
+
+<div class="chartBox">
+<canvas id="pie"></canvas>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* Emoji */
+function emoji(e){
+if(e=="happy") return "😊"
+if(e=="sad") return "😢"
+if(e=="angry") return "😡"
+if(e=="neutral") return "😐"
+if(e=="calm") return "😌"
+if(e=="fearful") return "😨"
+if(e=="surprised") return "😲"
+if(e=="disgust") return "🤢"
+return ""
+}
+
+/* Emotion → Number for graph */
+let emotionMap={
+neutral:0, calm:1, happy:2, sad:3,
+angry:4, fearful:5, surprised:6, disgust:7
+};
+
+/* TREND CHART */
+let trendChart=new Chart(document.getElementById("trend"),{
+type:"line",
+data:{labels:[],datasets:[{
+data:[],
+borderColor:"#3b82f6",
+borderWidth:2,
+tension:0.3,
+pointRadius:0
+}]},
+options:{
+animation:false,
+responsive:true,
+scales:{
+y:{
+min:0,
+max:7,
+ticks:{stepSize:1}
+}
+}
+}
+});
+
+/* PIE CHART */
+let pieChart=new Chart(document.getElementById("pie"),{
+type:"pie",
+data:{
+labels:["neutral","calm","happy","sad","angry","fearful","surprised","disgust"],
+datasets:[{
+data:[0,0,0,0,0,0,0,0],
+backgroundColor:[
+"#6c757d",
+"#20c997",
+"#ffc107",
+"#fd7e14",
+"#dc3545",
+"#6610f2",
+"#0dcaf0",
+"#343a40"
+]
+}]
+},
+options:{responsive:true,animation:false}
+});
+
+/* LIVE UPDATE */
+async function live(){
+try{
+let r=await fetch("/live");
+let d=await r.json();
+
+/* TEXT */
+document.getElementById("emotion").innerText=d.emotion+" "+emoji(d.emotion);
+document.getElementById("conf").innerText=d.confidence.toFixed(2);
+document.getElementById("acc").innerText=d.accuracy.toFixed(2);
+document.getElementById("time").innerText=d.time;
+
+/* TREND */
+let levels=d.trend_emotions.map(e=>emotionMap[e]??0);
+trendChart.data.labels=d.trend_time;
+trendChart.data.datasets[0].data=levels;
+trendChart.update();
+
+/* PIE */
+pieChart.data.datasets[0].data=Object.values(d.pie);
+pieChart.update();
+
+}catch(e){}
+}
+
+setInterval(live,900);
+
+function start(){fetch("/start");}
+function stop(){fetch("/stop");}
+
+</script>
+
+</body>
+</html>
